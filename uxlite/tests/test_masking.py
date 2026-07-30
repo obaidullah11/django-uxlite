@@ -23,3 +23,19 @@ class MaskPayloadTests(TestCase):
         data = {"password": "secret"}
         mask_payload(data)
         self.assertEqual(data["password"], "secret")
+
+    def test_does_not_mask_unrelated_substring_matches(self):
+        # "ip" is not a sensitive field, but naive substring matching could
+        # wrongly flag keys like "zip_code" or "receipt_id".
+        data = {"zip_code": "12345", "receipt_id": "r-1"}
+        masked = mask_payload(data)
+
+        self.assertEqual(masked["zip_code"], "12345")
+        self.assertEqual(masked["receipt_id"], "r-1")
+
+    def test_masks_camel_case_and_snake_case_variants(self):
+        data = {"cardNumber": "4111", "card_number": "4111"}
+        masked = mask_payload(data)
+
+        self.assertEqual(masked["cardNumber"], settings_defaults.MASK_VALUE)
+        self.assertEqual(masked["card_number"], settings_defaults.MASK_VALUE)

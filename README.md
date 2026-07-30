@@ -42,7 +42,7 @@ python manage.py migrate uxlite
 UXLITE_SENSITIVE_FIELDS = ["password", "token", "email", "card_number", "ssn"]
 UXLITE_RETENTION_DAYS = 90
 UXLITE_MASK_VALUE = "***"
-UXLITE_TRACK_PATHS_EXCLUDE = ["/admin/", "/static/", "/health/"]
+UXLITE_TRACK_PATHS_EXCLUDE = ["/admin/", "/static/", "/media/", "/health/"]
 ```
 
 ## Usage
@@ -62,8 +62,22 @@ Sensitive keys in `meta` are masked automatically before being stored, based on
 
 ### Crash logging
 
-Wired up automatically via the `got_request_exception` signal — no extra code needed.
-Every unhandled exception in a request is logged to `CrashLog`.
+Wired up automatically via the `got_request_exception` signal — no extra code needed
+for exceptions that reach Django as unhandled (including plain Django views and any
+exception type DRF doesn't recognize).
+
+If you're using Django REST Framework, DRF's own exception handler catches
+`APIException`/`Http404`/`PermissionDenied` before they become unhandled, which would
+otherwise hide 5xx-worthy failures from `CrashLog`. Opt in with:
+
+```python
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "uxlite.exceptions.drf_exception_handler",
+}
+```
+
+This still returns DRF's normal error response — it only additionally logs a
+`CrashLog` row when the resolved response status is 5xx.
 
 ### Purge old data
 

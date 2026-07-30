@@ -40,3 +40,18 @@ class MiddlewareTests(TestCase):
         middleware(request)
 
         self.assertEqual(RequestLog.objects.count(), 0)
+
+    async def test_logs_request_under_async_get_response(self):
+        async def get_response(request):
+            return HttpResponse(status=202)
+
+        middleware = UXLiteTrackingMiddleware(get_response)
+        self.assertTrue(middleware.async_mode)
+
+        request = self.factory.post("/api/orders/")
+        request.user = self.user
+
+        await middleware(request)
+
+        count = await RequestLog.objects.acount()
+        self.assertEqual(count, 1)

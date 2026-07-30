@@ -27,7 +27,7 @@ dependencies = [
 include = ["uxlite*"]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-django"]
+test = ["pytest", "pytest-django", "djangorestframework"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"

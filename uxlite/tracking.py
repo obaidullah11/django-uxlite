@@ -1,5 +1,7 @@
 import hashlib
 
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from . import settings_defaults as cfg
@@ -33,23 +35,40 @@ def get_or_create_session(request):
         return session
 
     user = request.user if request.user.is_authenticated else None
-    session, _created = Session.objects.update_or_create(
-        key=key,
-        defaults={"user": user, "ip": get_client_ip(request)},
-    )
+    try:
+        with transaction.atomic():
+            session, _created = Session.objects.update_or_create(
+                key=key,
+                defaults={"user": user, "ip": get_client_ip(request)},
+            )
+    except IntegrityError:
+        # Another concurrent request won the race to create this key first.
+        session = Session.objects.get(key=key)
     return session
 
 
 def track_event(name, request=None, meta=None, user=None):
-    """Record a custom business event. `meta` is masked before storage."""
+    """Record a custom business event. `meta` is masked before storage.
+    Non-dict `meta` (e.g. a plain string) is wrapped under a "value" key, since
+    JSONField requires an object and mask_payload only inspects dict/list keys."""
     session = get_or_create_session(request) if request is not None else None
     resolved_user = user
     if resolved_user is None and request is not None and request.user.is_authenticated:
         resolved_user = request.user
 
+    meta = meta or {}
+    if not isinstance(meta, dict):
+        meta = {"value": meta}
+
+    try:
+        masked_meta = mask_payload(meta)
+        DjangoJSONEncoder().encode(masked_meta)
+    except (TypeError, ValueError):
+        masked_meta = {"value": repr(meta)}
+
     return Event.objects.create(
         name=name,
         session=session,
         user=resolved_user,
-        meta=mask_payload(meta or {}),
+        meta=masked_meta,
     )

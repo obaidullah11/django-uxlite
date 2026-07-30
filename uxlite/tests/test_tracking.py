@@ -34,3 +34,13 @@ class TrackingTests(TestCase):
         self.assertNotEqual(event.meta["email"], "a@b.com")
         self.assertEqual(event.session.user, self.user)
         self.assertEqual(event.user, self.user)
+
+    def test_track_event_accepts_non_dict_meta(self):
+        event = track_event("ping", meta="just a string")
+
+        self.assertEqual(event.meta, {"value": "just a string"})
+
+    def test_track_event_handles_non_serializable_meta(self):
+        event = track_event("weird", meta={"obj": object()})
+
+        self.assertIn("value", event.meta)

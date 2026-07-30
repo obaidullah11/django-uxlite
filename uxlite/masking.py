@@ -1,9 +1,25 @@
+import re
+
 from . import settings_defaults as cfg
+
+_TOKEN_SPLIT_RE = re.compile(r"[^a-zA-Z0-9]+|(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _tokens(key):
+    return {
+        token.lower()
+        for token in _TOKEN_SPLIT_RE.split(str(key))
+        if token
+    }
 
 
 def _is_sensitive(key):
-    key_lower = str(key).lower()
-    return any(field.lower() in key_lower for field in cfg.SENSITIVE_FIELDS)
+    key_tokens = _tokens(key)
+    for field in cfg.SENSITIVE_FIELDS:
+        field_tokens = _tokens(field)
+        if field_tokens and field_tokens <= key_tokens:
+            return True
+    return False
 
 
 def mask_payload(data):
