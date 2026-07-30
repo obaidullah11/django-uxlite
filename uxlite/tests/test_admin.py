@@ -2,6 +2,46 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import resolve, reverse
 
+from uxlite.admin import _timeline_link
+from uxlite.models import RequestLog
+
+
+class TimelineLinkTests(TestCase):
+    def setUp(self):
+        # Create a throwaway user first so self.user's PK diverges from the
+        # RequestLog's own PK below -- otherwise both start at 1 and a
+        # regression that links to the row's own PK could pass by accident.
+        get_user_model().objects.create_user(username="decoy", password="pw")
+        self.user = get_user_model().objects.create_user(
+            username="alice", password="pw"
+        )
+
+    def _log(self, user=None):
+        return RequestLog.objects.create(
+            user=user,
+            method="GET",
+            path="/api/whatever/",
+            status_code=200,
+            duration_ms=5,
+        )
+
+    def test_links_to_the_related_users_pk_not_the_rows_own_pk(self):
+        log = self._log(user=self.user)
+        # Sanity check these differ, so the test would actually catch a
+        # regression that links to the RequestLog's own PK instead.
+        self.assertNotEqual(log.pk, self.user.pk)
+
+        rendered = _timeline_link(log)
+
+        expected_url = reverse("admin:uxlite_user_timeline", args=[self.user.pk])
+        self.assertIn(expected_url, rendered)
+        self.assertIn(str(self.user), rendered)
+
+    def test_returns_placeholder_when_user_is_none(self):
+        log = self._log(user=None)
+
+        self.assertEqual(_timeline_link(log), "—")
+
 
 class UserTimelineUrlTests(TestCase):
     def setUp(self):

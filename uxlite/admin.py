@@ -6,11 +6,12 @@ from .models import CrashLog, Event, RequestLog, Session
 from .tracking import user_timeline
 
 
-def _timeline_link(user):
-    if user_id := getattr(user, "pk", None):
-        url = reverse("admin:uxlite_user_timeline", args=[user_id])
-        return format_html('<a href="{}">{}</a>', url, user)
-    return "—"
+def _timeline_link(obj):
+    user = obj.user
+    if user is None:
+        return "—"
+    url = reverse("admin:uxlite_user_timeline", args=[user.pk])
+    return format_html('<a href="{}">{}</a>', url, user)
 
 
 _timeline_link.short_description = "user"
