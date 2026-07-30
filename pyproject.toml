@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-uxlite"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reusable Django app for API request/event analytics, crash logging, and PII-safe masking, viewable in Django admin."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -25,6 +25,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["uxlite*"]
+
+[tool.setuptools.package-data]
+uxlite = ["templates/**/*.html"]
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-django", "djangorestframework"]

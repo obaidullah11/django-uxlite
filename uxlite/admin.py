@@ -1,11 +1,51 @@
 from django.contrib import admin
+from django.urls import path, reverse
+from django.utils.html import format_html
 
 from .models import CrashLog, Event, RequestLog, Session
+from .tracking import user_timeline
+
+
+def _timeline_link(user):
+    if user_id := getattr(user, "pk", None):
+        url = reverse("admin:uxlite_user_timeline", args=[user_id])
+        return format_html('<a href="{}">{}</a>', url, user)
+    return "—"
+
+
+_timeline_link.short_description = "user"
+
+
+class UserTimelineAdminMixin:
+    """Adds a "user/<id>/timeline/" admin view that shows a user's RequestLogs
+    and Events merged into one chronological flow (login -> requests -> events)."""
+
+    def get_urls(self):
+        return [
+            path(
+                "user/<int:user_id>/timeline/",
+                self.admin_site.admin_view(self.user_timeline_view),
+                name="uxlite_user_timeline",
+            ),
+        ] + super().get_urls()
+
+    def user_timeline_view(self, request, user_id):
+        from django.contrib.auth import get_user_model
+        from django.shortcuts import get_object_or_404, render
+
+        user = get_object_or_404(get_user_model(), pk=user_id)
+        context = {
+            **self.admin_site.each_context(request),
+            "title": f"Activity timeline for {user}",
+            "user_obj": user,
+            "timeline": user_timeline(user),
+        }
+        return render(request, "admin/uxlite/user_timeline.html", context)
 
 
 @admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
-    list_display = ("key", "user", "ip", "request_count", "started_at", "last_seen_at")
+class SessionAdmin(UserTimelineAdminMixin, admin.ModelAdmin):
+    list_display = ("key", _timeline_link, "ip", "request_count", "started_at", "last_seen_at")
     list_filter = ("started_at",)
     search_fields = ("key", "user__username", "ip")
     ordering = ("-last_seen_at",)
@@ -16,7 +56,7 @@ class SessionAdmin(admin.ModelAdmin):
 
 @admin.register(RequestLog)
 class RequestLogAdmin(admin.ModelAdmin):
-    list_display = ("method", "path", "status_code", "duration_ms", "user", "ip", "created_at")
+    list_display = ("method", "path", "status_code", "duration_ms", _timeline_link, "ip", "created_at")
     list_filter = ("method", "status_code", "created_at")
     search_fields = ("path", "user__username", "ip")
     ordering = ("-created_at",)
@@ -28,7 +68,7 @@ class RequestLogAdmin(admin.ModelAdmin):
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ("name", "user", "session", "created_at")
+    list_display = ("name", _timeline_link, "session", "created_at")
     list_filter = ("name", "created_at")
     search_fields = ("name", "user__username")
     ordering = ("-created_at",)
@@ -40,7 +80,7 @@ class EventAdmin(admin.ModelAdmin):
 
 @admin.register(CrashLog)
 class CrashLogAdmin(admin.ModelAdmin):
-    list_display = ("exception_type", "path", "user", "created_at")
+    list_display = ("exception_type", "path", _timeline_link, "created_at")
     list_filter = ("exception_type", "created_at")
     search_fields = ("exception_type", "message", "path", "user__username")
     ordering = ("-created_at",)

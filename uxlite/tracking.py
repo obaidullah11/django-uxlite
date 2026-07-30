@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from . import settings_defaults as cfg
 from .masking import mask_payload
-from .models import Event, Session
+from .models import Event, RequestLog, Session
 
 
 def get_client_ip(request):
@@ -72,3 +72,33 @@ def track_event(name, request=None, meta=None, user=None):
         user=resolved_user,
         meta=masked_meta,
     )
+
+
+def user_timeline(user, limit=200):
+    """Merge a user's RequestLogs and Events into one chronological flow, e.g.:
+    "logged in -> GET /orders/ (200) -> checkout_completed -> POST /pay/ (200)".
+    Newest first, capped at `limit` combined entries."""
+    requests = RequestLog.objects.filter(user=user).order_by("-created_at")[:limit]
+    events = Event.objects.filter(user=user).order_by("-created_at")[:limit]
+
+    entries = [
+        {
+            "kind": "request",
+            "at": r.created_at,
+            "label": f"{r.method} {r.path}",
+            "detail": f"{r.status_code} · {r.duration_ms}ms",
+            "object": r,
+        }
+        for r in requests
+    ] + [
+        {
+            "kind": "event",
+            "at": e.created_at,
+            "label": e.name,
+            "detail": e.meta,
+            "object": e,
+        }
+        for e in events
+    ]
+    entries.sort(key=lambda entry: entry["at"], reverse=True)
+    return entries[:limit]

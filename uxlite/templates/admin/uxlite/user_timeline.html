@@ -1,0 +1,36 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Activity timeline for {{ user_obj }}</h1>
+
+{% if timeline %}
+<table style="width: 100%; border-collapse: collapse;">
+  <thead>
+    <tr style="text-align: left; border-bottom: 2px solid #ccc;">
+      <th style="padding: 6px 10px;">When</th>
+      <th style="padding: 6px 10px;">Kind</th>
+      <th style="padding: 6px 10px;">Label</th>
+      <th style="padding: 6px 10px;">Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in timeline %}
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 6px 10px; white-space: nowrap;">{{ entry.at }}</td>
+      <td style="padding: 6px 10px;">
+        {% if entry.kind == "request" %}
+          <span style="color: #447;">request</span>
+        {% else %}
+          <span style="color: #474;">event</span>
+        {% endif %}
+      </td>
+      <td style="padding: 6px 10px;">{{ entry.label }}</td>
+      <td style="padding: 6px 10px;">{{ entry.detail }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No recorded activity for this user yet.</p>
+{% endif %}
+{% endblock %}
