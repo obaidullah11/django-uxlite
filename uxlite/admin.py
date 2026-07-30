@@ -23,7 +23,7 @@ class UserTimelineAdminMixin:
     def get_urls(self):
         return [
             path(
-                "user/<int:user_id>/timeline/",
+                "user/<path:user_id>/timeline/",
                 self.admin_site.admin_view(self.user_timeline_view),
                 name="uxlite_user_timeline",
             ),
